@@ -1,135 +1,194 @@
-# Post-Quantum Blockchain: Thử nghiệm chữ ký Dilithium / Falcon cho Smart Contract.
-Students:
-  - Nguyễn Trọng Nhân - 24521236. 
-  - Lê Việt Hoàng - 24520546.
+# Proposal - Post-Quantum Blockchain: Thử nghiệm chữ ký Dilithium / Falcon cho Smart Contract.
 
-Lecturer: Nguyễn Ngọc Tự.
-
-Thời gian: 12 tuần (Semester 1, 2025-2026).
-## Goals
-Hiểu được cơ chế chữ ký hậu lượng-tử (Dilithium-Falcon), đánh giá tính khả thi của việc áp dụng các mô hình chữ ký trong môi trường blockchain (các rủi ro thực thi, ví dụ sampling, constant-time).
-
-So sánh ba mô hình triển khai:
-  - On-chain verification (hợp đồng thông minh trực tiếp kiểm tra chữ ký).
-  - Off-chain verification + on-chain attestation (giảm gas bằng cách chỉ lưu bằng chứng trên chain).
-  - Zk-proof assisted verification (dùng SNARK/Plonk để xác minh hiệu quả hơn).
-
-Xây dựng prototype và đo đạc thực tế: gas fee, độ trễ, băng thông, lưu trữ.
-
-Viết báo cáo khoa học, cung cấp mã nguồn reproducible và khuyến nghị cho áp dụng PQ signatures trong hệ thống blockchain.
-## Senario.
-
-- Trong hệ sinh thái blockchain, chữ ký số đóng vai trò quan trọng, được sử dụng để xác thực giao dịch và bảo vệ tài sản kỹ thuật số.
-- Chữ ký số được ứng dụng ở:
-    1. User → Transaction (account-level)
-    2. Contract → Transaction (contract-level)
-    3. Block/consensus signatures (validator-level, PoS)
-    4. L2 / Rollups (sequencer-level)
-    5. Bridges / Oracles / Off-chain committees
-- Hiện nay, các mô hình blockchain phổ biến sử dụng các loại chữ ký như EDCSA, Schnorr, BLS,... để xác thực giao dịch và bảo mật mạng lưới.
-
-![image](./sign_diagram.svg)
+## 1. Asset‑Centric Context (AIM).
+Trong bối cảnh Post-Quantum Blockchain - Thử nghiệm và đánh giá chữ ký Dilithium/ Falcon cho Smart Contract, các tài sản (assets) được phân loại theo nhóm mục tiêu bảo mật (Data /Key /Identity /State /Infrastructure) như sau: 
+### 1.1 Danh mục tài sản.
+#### A1. Dữ liệu cần bảo vệ:
+- in-transit: Dữ liệu giao dịch (transaction data).
+- at-rest: Dữ liệu smart contract và các dữ liệu on-chain khác.
+- in-process: Quá trình verify on-chain.
 
 
-### Tài sản được bảo vệ
-- Ở đây, các loại chữ ký số kể trên để bảo vệ tài sản là tiền mã hóa (cryptocurrency) và hợp đồng thông minh (smart contract).
-- Tài sản được bảo vệ thông qua các đảm bảo sau:
-  - Tính sở hữu: Chữ ký số chứng minh quyền sở hữu tài sản kỹ thuật số, chỉ chủ sở hữu mới có thể thực hiện giao dịch.
-  - Tính toàn vẹn: Chữ ký số đảm bảo rằng dữ liệu giao dịch không bị thay đổi hoặc giả mạo.
-  - Tính minh bạch: Nội dung của giao dịch/hợp đồng một khi đã được xác thực sẽ được công khai và lưu trữ dài hạn, không thể xóa hoặc sửa đổi.
-### Mối đe dọa
-- Các thuật toán chữ ký số được sử dụng hiện nay dựa trên các giả định về độ khó của các bài toán toán học như:
-  - ECDSA: Dựa trên độ khó của bài toán logarit rời rạc trên đường cong elliptic.
-  - Schnorr: Cũng dựa trên độ khó của bài toán logarit rời rạc, nhưng với một số cải tiến về hiệu suất và bảo mật.
-  - BLS: Dựa trên độ khó của bài toán logarit rời rạc trong các nhóm có cấu trúc đặc biệt.
+#### A2) Bí mật và Khóa (Secrets and Keys).
+- Private key PQC.
+- Public key PQC.
+- ECDSA keys (nhằm mục đích so sánh).
+- Seed cho zk-proof (nếu dùng).
+- KMS/ Vault root keys.
 
-- Tuy nhiên, với sự phát triển của máy tính lượng tử, các thuật toán này có thể bị phá vỡ trong tương lai gần.
-- Các mối đe dọa chính bao gồm:
-  - Tấn công Shor: Máy tính lượng tử có thể giải quyết bài toán logarit rời rạc một cách hiệu quả, làm suy yếu bảo mật của ECDSA và Schnorr.
-  - Tấn công Grover: Máy tính lượng tử có thể tăng tốc độ tìm kiếm, làm giảm độ an toàn của các thuật toán dựa trên khóa đối xứng.
+#### A3) Danh tính (Identities).
+- User Identity: Externally Owned Accounts (EOAs)
+- Contract Account Identity.
+- Node/Validator Identity.
+- Others: (Multi-Signature Wallets,  Verifiable Credentials)
+#### A4) Trạng thái và Chính sách (State and Policy Assets).
+- Blockchain State: Ownership records, System configs.
+- Access Policy / Authorization Policy: Smart contract rules.
+- Attestation Policy (off-chain).
 
-### Giải pháp tiềm năng 
-- Để đối phó với các mối đe dọa từ máy tính lượng tử, ta xem xét và triển khai một số loại chữ ký số mới, có sức chống chịu cao với các cuộc tấn công bằng máy tính lượng tử. 
-- Trong đó, các loại chữ ký số dựa trên Lattice (Lattice-based signatures) được xem là một trong những ứng cử viên triển vọng nhất, có thể kể đến như: Dilithium (đã được chuẩn hóa bởi NIST trong FIPS 204), Falcon (đang trong quá trình chuẩn hóa bởi NIST).
+#### A5) Hạ tầng in cậy (Trusted Infrastructure).
+- PQC validator.
+- Blockchain Node / Runtime.
+- PQ Signature Library (PQClean / liboqs).
+- CA / Attestation Root (nếu có).
 
-## Stakeholders.
-1. Nhà phát triển blockchain/ smart contract: cần giải pháp triển khai hiệu quả, an toàn.
-2. Người dùng blockchain: mong muốn giao dịch chi phí thấp, độ trễ nhỏ.
-3. Tổ chức tài chính/ quản lý tài sản số: cần tính bền vững lâu dài trước nguy cơ lượng tử.
-## Motivation & Background.
-1. Thực trạng:
-    - Ethereum, Bitcoin: dùng ECDSA (secp256k1).
-    - Polkadot/Substrate: dùng sr25519 (EdDSA trên Ed25519).
-    - Cosmos: hỗ trợ secp256k1, Ed25519.
-        * Tất cả đều dựa trên elliptic curve signatures, vốn sẽ bị phá bởi thuật toán Shor trên máy tính lượng tử quy mô lớn.
-2.  Dilithium (ML-DSA, FIPS 204):
-    - Lattice-based, Fiat–Shamir with aborts.
-    - Dễ triển khai an toàn, không yêu cầu floating-point.
-    - Nhược điểm: chữ ký lớn (2.4 KB), public key ~1.3 KB.
-3. Falcon (FN-DSA draft):
-    - Lattice-based, Gaussian sampling (FFT).
-    - Ưu điểm: chữ ký nhỏ (~666 B), public key ~897 B, verify nhanh.
-    - Nhược điểm: implement phức tạp, dễ side-channel nếu dùng floating-point.
-4. Thách thức:
-    - Blockchain hạn chế bởi gas, calldata, storage.
-    - Chữ ký PQ có thể gây tăng chi phí gấp nhiều lần so với ECDSA.
-    - Cần tìm phương án kết hợp: off-chain + zk-proof.
-## Research Questions. 
-1. Chi phí (gas, bytes lưu trữ, latency) để xác thực Dilithium/Falcon on-chain so với ECDSA là bao nhiêu trên EVM/Solidity và trên nền tảng WASM (Substrate/CosmWasm)?
-2. Có những thiết kế hybrid/auxiliary (off-chain verification + on-chain attestation, hoặc zk-proof of verification) nào giúp giảm chi phí on-chain mà vẫn giữ được tính bảo mật/ khả năng audit không?
-3. Có sự khác biệt thực tiễn trong việc triển khai Dilithium với Falcon (cân nhắc: kích thước chữ ký, công đoạn sampling/FFT, constant-time difficulty) ảnh hưởng tới lựa chọn cho blockchain hay không?
 
-Giả thuyết: Triển khai verify trực tiếp trên EVM sẽ tốn gas và có thể không thực tế; WASM-based smart contract hoặc off-chain + attestation/zk-proof là các hướng thực nghiệm khả thi hơn. Falcon có chữ ký nhỏ hơn thi an toàn hơn nhưng chữ ký có thể lớn hơn. 
-## Methodology. 
-1. Thiết kế kịch bản triển khai
-  - On-chain verification (EVM/Solidity): port trực tiếp thuật toán verify.
-  - On-chain verification (WASM/Polkadot): compile Rust → WASM, chạy trên Substrate.
-  - Off-chain verification + on-chain attestation: chỉ đưa Merkle root/hash lên chain.
-  - zk-proof assisted verification: tạo zk-SNARK proof ngoài chuỗi, verify proof nhỏ trên chain.
-2. Implementation plan.
-  - Libraries: PQClean, liboqs, pqcrypto (Rust).
-  - Blockchain platforms: Hardhat/Ganache (EVM), Substrate dev node, CosmWasm.
-  - zk tools: Circom/snakjs, Halo2.
-  - Bechmark: đo gas, calldata size, storage, latency, proof gen time.
-## Assets & Security Requirements. 
-1. Assets cần bảo vệ.
-  - Khóa riêng tư người dùng.
-  - Tính toàn vẹn giao dịch blockchain.
-  - Chi phí gas & storage (tài nguyên on-chain).
-2. Yêu cầu bảo mật khi triển khai.
-  - Constant-time implementation (không branch theo secret).
-  - Randomness chuẩn CSPRNG.
-  - Side-channel hardened (đặc biệt là Falcon).
-  - Input validation: kiểm tra signature/public key length.
-  - Replay protection cho attestation (nonce/timestamp/chain-id).
-3. Checklist an toàn.
-  - Dilithium: rejection sampling, SHAKE-128/256 chuẩn.
-  - Falcon: integer-based sampler, tránh floating point không constant-time.
-  - Blockchain: hash thay vì lưu trực tiếp chữ ký.
-## Experiment Setup.
-1. Key generation: tạo keypairs Dilithium & Falcon theo chuẩn Nist.
-2. Test vectors: verify với bộ chuẩn NIST PQC.
-3. Blockchain testnest: Ethereum local, Substrate dev chain.
-4. Benchmark metrics:
-   - Gas per verify.
-   - Transaction size (bytes).
-   - Storage overhead.
-   - Proof generation time (zk).
-## Deliverables.
-1. Báo cáo chi tiết + so sánh Dilithium vs Falcon.
-2. Prototype contracts (EVM, WASM).
-3. Off-chain attestation server.
-4. zk-proof circuit (demo).
-5. Bộ dữ liệu benchmark (CSV, plots).
-6. Demo video + repoducible repo (Docker).
-## Riks & Mitigation.
-1. Falcon side-channel → chỉ dùng implementation đã hardened.
-2. Gas EVM quá cao → fallback sang attestation/zk.
-3. zk circuit quá phức tạp → thử nghiệm sub-circuit hoặc batching.
-4. Thay đổi chuẩn NIST → ghi rõ commit hash, version.
+### 1.2 Ngữ cảnh và ràng buộc ( Architecture and Constraints). 
 
-## References.
-1. [NIST FIPS 204 — ML-DSA (Dilithium).](https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf)
-2. [Cloudflare (2024) — A look at the latest post-quantum signature standardization candidates](https://blog.cloudflare.com/another-look-at-pq-signatures/)
-3. [Benchmarking and Analysing NIST PQC Lattice-Based Signature Scheme Standards on the ARM Cortex M7](https://csrc.nist.gov/csrc/media/Events/2022/fourth-pqc-standardization-conference/documents/papers/benchmarking-and-analysiing-nist-pqc-lattice-based-pqc2022.pdf)
-4. [CRYSTALS-Dilithium Algorithm Specifications and Supporting Documentation](https://pq-crystals.org/dilithium/data/dilithium-specification-round3.pdf)
+#### Hệ thống
+1. Môi trường Blockchain: Ethereum (EVM), CosmWasm (WASM).
+2. Signer (Client-side): Off-chain, sinh khóa, ký và lưu trữ khóa.
+3. Smart contract (On-chain, trusted): thực thi logic (Xác minh chữ ký, thực thi nghiệp vụ).
+4. Off-chain Verifier / Relayer: Phụ trợ, giảm chi phí on-chain.
+
+#### Trust Boundaries
+- Off-chain vs On-chain (Boundary chính): Mọi dữ liệu từ off-chain lên on-chain đều phải được xác thực nghiêm ngặt.
+- On-chain runtime: Giữa mã nguồn smart contract và môi trường thực thi (EVM/WASM).
+
+#### Ràng buộc kỹ thuật và ràng buộc hiệu năng
+- Gas limit: Chi phí tính toán PQC trên EVM rất cao.
+- Transaction size: Kích thước khóa lớn dẫn đến kích thước giao dịch tăng theo.
+- Latency: Các phương pháp off-chain khiến độ trễ tăng cao.
+- Môi trường thực thi: EVM không được thiết kế để thực hiện tính toán số học phức tạp khiến PQC khó triển khai.
+
+---
+
+### **1.3. Phân tích Rủi ro & Mục tiêu Bảo vệ (Risk Analysis & SMART Protection Goals)**
+
+#### **Rủi ro chính & Biện pháp giảm thiểu (Key Risks & Mitigations)**
+
+| ID | Rủi ro chính (Risk) | Mô tả ngắn gọn | Biện pháp giảm thiểu tương ứng (Mitigation) |
+| :--- | :--- | :--- | :--- |
+| R1 | **Giả mạo hậu lượng tử(Post-Quantum Forgery)** | ECDSA bị phá bởi máy tính lượng tử dẫn đến giả mạo danh tính. | **Sử dụng Chữ ký Hậu-lượng-tử (PQC Signatures)** |
+| R2 | **Lỗi logic trình xác thực (Verifier Logic Flaw)** | Lỗi triển khai logic trong hệ thống dẫn đến: <br/>- Chấp nhận chữ ký sai (false-accept) <br/> - từ chối  chữ ký đúng (false-reject). | **Test và thử nghiệm chéo trên các bộ thư viện chuẩn:** Kiểm tra chéo logic xác thực on-chain với known-answer tests. |
+| R3 | **Tấn công Từ chối Dịch vụ (Gas-based Denial of Service)** | Chi phí gas quá cao, dẫn đến việc bị spam giao dịch gây gián đoạn xử lý cho các node. | **Tối ưu Chi phí tính toán:** Thử nghiệm và so sánh các mô hình thay thế như xác thực off-chain + chứng thực on-chain (attestation), zk-proofs,... để giảm thiểu tính toán on-chain. |
+| R4 | **Chi phí Dữ liệu cao (Data Cost Overhead)** | Kích thước khóa lớn gây vấn đề đội chi phí cho người dùng.| **Lựa chọn Tham số phù hợp:** Kiểm thử, đánh giá các tham số triển khai của Dilithium/Falcon. Chọn tham số phù hợp. |
+| R5 | **Tấn công Kênh bên (Side-Channel Attack)** | Quá trình tạo chữ ký PQC (đặc biệt là Falcon với thuật toán sampling phức tạp) ở phía client có thể bị tấn công kênh phụ, làm rò rỉ khóa riêng. | **Triển khai đúng, sử dụng thư viện đảm bảo an toàn:** PQClean/liboqs, constant-time, chú ý trong triển khai Falcon... |
+
+---
+
+#### **Mục tiêu bảo vệ định lượng (SMART Protection Goals)**
+
+
+| ID | Mục tiêu Bảo vệ (Protection Goal) | Metric (Chỉ số đo lường) | Ngưỡng chấp nhận (Threshold) |
+| :--- | :--- | :--- | :--- |
+| G1 | **Đảm bảo tính chính xác mật mã.** Hệ thống phải xác thực đúng chữ ký PQC, tránh false-accept và false-reject. | False-Accept Rate với các chữ ký không hợp lệ. | **0%** |
+| G2 | **Đảm bảo tính khả thi về chi phí thực thi on-chain.** | Chi phí gas trung bình mỗi lần verify trên EVM. | **$\leq$ 15 triệu gas**.[^1] |
+| G3 | **Giảm chi phí Off‑chain verification**  | Tỷ lệ giảm chi phí gas so với phương pháp xác thực on-chain trực tiếp. | Chưa xác định |
+| G4 | **Kiểm soát chi phí dữ liệu giao dịch.** | Kích thước giao dịch | Chưa xác định |
+| G5 | **Đánh giá các vấn đề bảo mật.**| Kiểm tra, đánh giá các rủi ro liên quan tới side-channel/constant-time attack, độ phức tạp code và rủi ro lỗi logic. | Không có tiêu chuẩn cụ thể. |
+
+## 2) System Architecture (đề suất).
+### 2.1 Sơ đồ kiến trúc: 
+
+|![image](https://hackmd.io/_uploads/HJCxA1dalx.png)<br><center>Overall Blockchain process</center>|
+---
+
+|![image](https://hackmd.io/_uploads/S11hA1Ople.png) <center>**Scenario 1: Naive On-chain verification**</center>|
+---
+
+|![image](https://hackmd.io/_uploads/r1A3lxOpgg.png)<center>**Scenario 2: Off-chain verification/On-chain attestation**</center>|
+--
+
+|![image](https://hackmd.io/_uploads/HJQh-e_axx.png)<center>**Scenario 3: Prover - zk-proof**</center>|
+--
+### 2.2 Thành phần lõi và Quyết định kỹ thuật.
+1. Signer (off-chain): Sử dụng PQClean/liboqs. Đảm bảo chống side-channel attack.
+2. PQC Verifier Smart  Contract (On-chain PEP): Triển khai EVM và WASM để so sánh với nhau, triển khai ECDSA làm tiêu chuẩn cơ sở.
+3. Off-chain Components (Prover/Relayer): Relayer/Attestor (off-chain verification/on-chain attestation), Prover (zk proof).
+
+### 2.3 Invariants (khẳng định cần được kiểm chứng).
+
+**I1. Integrity & Unforgeability:** Chống giả mạo giao dịch.
+**I2. Cryptographic Correctness:** Đảm bảo logic xác thực hoạt động đúng, không xảy ra sai lệch hệ thống.
+**I3. Cost Feasibility:** Chi phí gas phải đảm bảo trong ngưỡng nhất định.
+**I4. Optimization Effectiveness:** Đảm bảo tính khả dụng trong các giải pháp tối ưu off-chain.
+**I5. Reproducibility:** Các Metrics, Experiments phải có khả năng tái tạo nhất quán.
+
+
+## 3) Crypto Solution
+### 3.1 Crypto layer.
+- Data in transit Protection: Dùng chữ ký số.
+- Data at Rest Protection: Hash block.
+- Signatures & Authentication: Base - ECDSA, PQC1 - CRYSALS-Dilithium, PQC2 - Falcon.
+- Key Management: Client-side, khởi tạo và lưu trong môi trường dev/temporary.
+### 3.2 AuthN layer (Authentication)
+- User authentication: Sử dụng cơ chế thử thách - phản hồi (signature-based challenge-response). Với Challenge là transaction, và Response là PQC của transaction.
+- Anti-replay (Không có session vì blockchain là phi trạng thái - stateless): Sử dụng cơ chế nonce để định danh giao dịch.
+
+### 3.3 AuthZ layer (Authorization)
+- Mô hình: PEP tại Smart contract.
+- Thi hành: Deny-by-Default, Least Privilege.
+
+## 4) Deployment Testing (Kế hoạch triển khai).
+### D1. Xác thực trực tiếp trên EVM (EVM-based On-chain Naive Verification)
+#### Stack: 
+- **Blockchain:** Local Ethereum - HardHat.
+- **Smart Contract:** Solidity.
+- **Off-chain libs:**  PQClean/liboqs.
+- **Client Scripting:** Ethers.js/Viem
+
+#### Trọng tâm kiểm thử:
+- Đo chi phí gas.
+- Đo kích thước data.
+### D2. Xác thực Trực tiếp trên WASM (WASM-based On-chain Verification)
+#### Stack (Substrate local):
+- **Blockchain:** Substrate local (Dev Node).
+- **Smart Contract:** Rust to WASM = `!ink`.
+- **Off-chain libs:**  pqcrypto.
+- **Client Scripting:**  Polkadot.js.
+
+#### Fallback stack (Cosmos):
+- **Blockchain:** Wasmd.
+- **Smart Contract:** Rust to WASM (framework: CosmWasm).
+- **Off-chain libs:**  pqcrypto.
+- **Client Scripting:**  CosmJS.
+
+#### Trọng tâm kiểm thử:
+- Đo chi phí gas.
+- Đo kích thước data.
+- So sánh với D1.
+
+### D3. Xác thực Off-chain & Chứng thực On-chain (Attestation Model)
+#### Stack:
+- On-chain: tương tự D1.
+- Off-chain: Relayer viết bằng Node.js hoặc Go.
+#### Trọng tâm:
+- Đo gas on-chain.
+- Đo end-to-end latency.
+- Kiểm tra trade-off giữa chi phí và độ tin cậy.
+
+### D4. Xác thực với ZK-Proof (ZK-Proof Assisted Model) (*dự kiến*)
+#### Stack
+- On-chain: tương tự D1.
+- Off-chain: Circom & snarkjs, mô phỏng arithmetic circuit của PQC, tạo proof.
+
+#### Trọng tâm:
+- Đo gas on-chain.
+- Đo proofing-time off-chain.
+- Đánh giá độ phức tạp triển khai.
+
+
+## 5) Evaluation.
+### E-Crypto
+- **E-C1** Integrity & Forgery Resistance: Tỉ lệ false-accept = 0%, tỉ lệ false-reject = 0%.
+- **E-C2** On-Chain Execution Cost: $\leq 15M$ gas.
+- **E-C3** Transaction Data Cost: ECDSA x1, Falcon x12, Dilithium x40.
+
+### E-AuthN
+- **E-N1** Off-Chain Performance Cost: Độ trễ $\leq 5s$.
+
+### E-AuthZ
+- **E-Z1** Bussiness Logic Preservation: Tỉ lệ tương thích giữa ECDSA và PQC đạt 100%.
+
+---
+## Tham khảo [^1][^2][^3][^4][^5][^6][^7][^8][^9]:
+[^1]: https://zknox.eth.limo/posts/2025/03/21/ETHFALCON.html
+[^2]: https://eprint.iacr.org/2024/1287.pdf
+[^3]: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf
+[^4]: https://blog.cloudflare.com/another-look-at-pq-signatures/
+[^5]: https://pq-crystals.org/dilithium/data/dilithium-specification-round3.pdf
+[^6]: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf
+[^7]: https://eprint.iacr.org/2017/279.pdf
+[^8]: https://hackmd.io/@Giapppp/mlkem
+[^9]: https://github.com/Tetration-Lab
